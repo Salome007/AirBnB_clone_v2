@@ -1,81 +1,27 @@
 #!/usr/bin/env bash
-#Prepare your web servers 
+# script that sets up web servers for the deployment of web_static
+sudo apt-get update
+sudo apt-get -y install nginx
+sudo ufw allow 'Nginx HTTP'
 
-#install nginx if not already installed
-
-echo -e "Script start..."
-
-function install() {
-    if ! dpkg -l | grep -q "$1"
-    then
-        sudo apt-get update
-        sudo apt-get -y install "$1"
-
-    else
-        echo "$1 is already installed."
-        echo -e "\n"
-    fi
-}
-
-
-install nginx;
-
-echo -e "Creating required folders.\n"
-# Create required directories
-sudo mkdir -p /data/web_static/releases/test/
+sudo mkdir -p /data/
+sudo mkdir -p /data/web_static/
+sudo mkdir -p /data/web_static/releases/
 sudo mkdir -p /data/web_static/shared/
-
-# Create a fake HTML file
-echo -e "Creation of fake HTML file for testing...\n"
-html="<html>
+sudo mkdir -p /data/web_static/releases/test/
+sudo touch /data/web_static/releases/test/index.html
+sudo echo "<html>
   <head>
   </head>
   <body>
     Holberton School
   </body>
-</html>"
-echo "$html" | sudo tee /data/web_static/releases/test/index.html
+</html>" | sudo tee /data/web_static/releases/test/index.html
 
+sudo ln -s -f /data/web_static/releases/test/ /data/web_static/current
 
-# Create or recreate the symbolic link
-echo -e "Create a symbolic link.\n"
-sudo ln -sf /data/web_static/releases/test/ /data/web_static/current
-
-# Give ownership to the ubuntu user and group recursively
 sudo chown -R ubuntu:ubuntu /data/
 
-# Update Nginx configuration
-nginx_config="/etc/nginx/sites-available/default"
+sudo sed -i '/listen 80 default_server/a location /hbnb_static { alias /data/web_static/current/;}' /etc/nginx/sites-enabled/default
 
-echo "server {
-    listen 80 default_server;
-    listen [::]:80 default_server;
-    add_header X-Served-By $HOSTNAME;
-    root   /var/www/html;
-    index  index.html index.htm;
-
-    location /hbnb_static {
-	alias /data/web_static/current;
-	index index.html index.htm;
-    }
-
-    location /redirect_me {
-	return 301 https://github.com/patrice012/;
-    }
-
-    error_page 404 /404.html;
-    location /404 {
-      root /var/www/html;
-      internal;
-    }
-}" | sudo tee "$nginx_config"
-
-
-echo -e "Start Nginx...\n"
-# service nginx restart
-if [ "$(pgrep -c nginx)" -le 0 ]
-then
-	sudo service nginx start
-else
-	sudo service nginx restart
-fi
+sudo service nginx restart
